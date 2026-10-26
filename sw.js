@@ -1,5 +1,5 @@
 // Caches the app so it opens offline (e.g. in a gym with no signal).
-const CACHE = "lift-v2";
+const CACHE = "lift-v3";
 const FILES = ["./", "index.html", "exercises.js", "app.js", "style.css", "manifest.json", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

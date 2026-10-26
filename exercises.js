@@ -207,17 +207,61 @@ const SILHOUETTE = `
   <path d="M40 110 Q40 140 45 166 Q40 190 44 214 L52 214 Q56 190 54 166 Q59 140 59 118 Z"/>
   <path d="M80 110 Q80 140 75 166 Q80 190 76 214 L68 214 Q64 190 66 166 Q61 140 61 118 Z"/>`;
 
-function figure(shapes, primary, secondary) {
-  const fill = m => primary.has(m) ? "var(--hit)" : secondary.has(m) ? "var(--hit2)" : "var(--idle)";
-  const parts = shapes.map(([m, el]) => el.replace("/>", ` fill="${fill(m)}"><title>${MUSCLES[m]}</title></${el.match(/<(\w+)/)[1]}>`)).join("");
+function figure(shapes, colorOf) {
+  const parts = shapes.map(([m, el]) => el.replace("/>", ` fill="${colorOf(m)}"><title>${MUSCLES[m]}</title></${el.match(/<(\w+)/)[1]}>`)).join("");
   return `<g fill="var(--body)">${SILHOUETTE}</g>${parts}<g transform="translate(120,0) scale(-1,1)">${parts}</g>`;
+}
+
+// colorOf(muscle) -> CSS color. Used for session coverage, weekly volume and recovery.
+function colorMap(colorOf, small = false) {
+  const h = small ? 110 : 230;
+  return `<div class="bodymap">
+    <div><svg viewBox="0 0 120 220" height="${h}" role="img" aria-label="Front muscles">${figure(FRONT, colorOf)}</svg>${small ? "" : `<div class="sub">Front</div>`}</div>
+    <div><svg viewBox="0 0 120 220" height="${h}" role="img" aria-label="Back muscles">${figure(BACK, colorOf)}</svg>${small ? "" : `<div class="sub">Back</div>`}</div>
+  </div>`;
 }
 
 function bodyMap(exercises, small = false) {
   const { primary, secondary } = coverage(exercises);
-  const h = small ? 110 : 230;
-  return `<div class="bodymap">
-    <div><svg viewBox="0 0 120 220" height="${h}" role="img" aria-label="Front muscles">${figure(FRONT, primary, secondary)}</svg>${small ? "" : `<div class="sub">Front</div>`}</div>
-    <div><svg viewBox="0 0 120 220" height="${h}" role="img" aria-label="Back muscles">${figure(BACK, primary, secondary)}</svg>${small ? "" : `<div class="sub">Back</div>`}</div>
-  </div>`;
+  return colorMap(m => primary.has(m) ? "var(--hit)" : secondary.has(m) ? "var(--hit2)" : "var(--idle)", small);
 }
+
+// Other exercises that train the same main muscle, for swapping mid-workout.
+function alternatives(name) {
+  const [p] = musclesFor(name);
+  if (!p.length) return [];
+  return Object.entries(EXERCISES)
+    .filter(([n, [q]]) => n.toLowerCase() !== name.toLowerCase() && q.includes(p[0]))
+    .sort((a, b) => b[1][0].filter(m => p.includes(m)).length - a[1][0].filter(m => p.includes(m)).length)
+    .map(([n]) => n).slice(0, 8);
+}
+
+// Big multi-muscle lifts get longer rest than isolation moves.
+function isCompound(name) {
+  const [p, s] = musclesFor(name);
+  return p.length + s.length >= 3;
+}
+const LOWER_BODY = ["quads", "hamstrings", "glutes"];
+function isLowerBody(name) { return musclesFor(name)[0].some(m => LOWER_BODY.includes(m)); }
+
+const PROGRAMS = [
+  { name: "Push / Pull / Legs", about: "6 days, classic bodybuilding split", routines: [
+    ["Push day", ["Bench press", "Overhead press", "Incline dumbbell press", "Lateral raise", "Tricep pushdown"]],
+    ["Pull day", ["Deadlift", "Pull-up", "Barbell row", "Face pull", "Bicep curl"]],
+    ["Leg day", ["Squat", "Romanian deadlift", "Leg press", "Leg curl", "Calf raise"]]] },
+  { name: "Upper / Lower", about: "4 days, strength and size", routines: [
+    ["Upper", ["Bench press", "Barbell row", "Overhead press", "Lat pulldown", "Bicep curl", "Tricep pushdown"]],
+    ["Lower", ["Squat", "Romanian deadlift", "Leg press", "Leg curl", "Calf raise"]]] },
+  { name: "Full body 3x", about: "3 days, great for beginners", routines: [
+    ["Full body A", ["Squat", "Bench press", "Barbell row", "Plank"]],
+    ["Full body B", ["Deadlift", "Overhead press", "Lat pulldown", "Lunge"]]] },
+  { name: "StrongLifts 5x5", about: "3 days, pure strength", routines: [
+    ["5x5 A", ["Squat", "Bench press", "Barbell row"]],
+    ["5x5 B", ["Squat", "Overhead press", "Deadlift"]]] },
+  { name: "Bro split", about: "5 days, one muscle group a day", routines: [
+    ["Chest day", ["Bench press", "Incline dumbbell press", "Cable fly", "Dips"]],
+    ["Back day", ["Deadlift", "Pull-up", "Seated cable row", "Straight-arm pulldown"]],
+    ["Shoulder day", ["Overhead press", "Lateral raise", "Rear delt fly", "Shrug"]],
+    ["Arm day", ["Close-grip bench press", "Bicep curl", "Skull crusher", "Hammer curl"]],
+    ["Leg day", ["Squat", "Leg press", "Leg curl", "Leg extension", "Calf raise"]]] },
+];
