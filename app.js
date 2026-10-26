@@ -114,7 +114,8 @@ function workout() {
     ${a.exercises.map((e, ei) => {
       const last = lastSetsFor(e.name);
       return `<div class="card" style="margin-top:12px">
-        <div class="row between"><b>${esc(e.name)}</b>
+        <div class="row between"><div class="row"><b>${esc(e.name)}</b>
+          <a class="form-link" href="${formLink(e.name)}" target="_blank" rel="noopener">▶ Form</a></div>
           ${bestFor(e.name) ? `<span class="pr">🏆 ${Math.round(bestFor(e.name))} ${unit()}</span>` : ""}</div>
         ${last.length ? `<div class="last">Last: ${last.map(s => `${s.w}×${s.r}`).join(", ")}</div>` : `<div class="last">First time, pick a starting weight</div>`}
         <div class="set" style="margin-top:8px"><span class="num sub">Set</span><span class="sub" style="text-align:center">${unit()}</span><span class="sub" style="text-align:center">Reps</span><span></span></div>
@@ -143,7 +144,9 @@ function routines() {
       <div class="row between"><b>${esc(r.name)}</b>
         <div class="row"><button class="btn small ghost" data-act="edit" data-id="${r.id}">Edit</button>
         <button class="btn small primary" data-act="start" data-id="${r.id}">Start</button></div></div>
-      <div style="margin-top:8px">${r.exercises.map(e => `<span class="chip">${esc(e)}</span>`).join("")}</div>
+      <div class="row" style="margin-top:8px;align-items:flex-start">
+        <div style="flex:1">${r.exercises.map(e => `<span class="chip">${esc(e)}</span>`).join("")}</div>
+        ${bodyMap(r.exercises, true)}</div>
     </div>`).join("")}
     <button class="btn ghost wide" data-act="newroutine">+ New routine</button>
     <h2>Settings</h2>
@@ -169,16 +172,38 @@ function editRoutine() {
   return `
     <button class="btn small ghost" data-act="back">‹ Back</button>
     <h1 style="margin-top:12px">Edit routine</h1>
-    <input id="rname" value="${esc(r.name)}" data-id="${r.id}">
+    <input id="rname" value="${esc(r.name)}" data-id="${r.id}" placeholder="Session name (e.g. Push day)">
+    <div class="card" style="margin-top:12px">
+      <div class="row between"><b>Muscles worked</b>
+        <span class="legend"><i style="background:var(--hit)"></i>Main <i style="background:var(--hit2)"></i>Helper</span></div>
+      ${bodyMap(r.exercises)}
+    </div>
+    ${suggestions(r)}
     <h2>Exercises</h2>
-    ${r.exercises.map((e, i) => `<div class="card list-item"><span>${esc(e)}</span>
+    ${r.exercises.map((e, i) => `<div class="card list-item"><div>${esc(e)}
+        <div class="sub" style="font-size:12px">${musclesFor(e)[0].map(m => MUSCLES[m]).join(", ") || "Unknown muscles"}</div></div>
       <div class="row">
+        <a class="btn small ghost" href="${formLink(e)}" target="_blank" rel="noopener">▶ Form</a>
         ${i > 0 ? `<button class="btn small ghost" data-act="exup" data-id="${r.id}" data-i="${i}">↑</button>` : ""}
         <button class="btn small danger" data-act="exdel" data-id="${r.id}" data-i="${i}">✕</button></div></div>`).join("")}
-    <div class="card"><input id="newex" placeholder="Exercise name">
+    <div class="card"><input id="newex" list="ex-list" placeholder="Exercise name">
+      <datalist id="ex-list">${Object.keys(EXERCISES).map(n => `<option value="${esc(n)}">`).join("")}</datalist>
       <button class="btn primary wide" style="margin-top:8px" data-act="exadd" data-id="${r.id}">+ Add</button></div>
     <button class="btn danger wide" data-act="delroutine" data-id="${r.id}">Delete routine</button>
   `;
+}
+
+function suggestions(r) {
+  const { target, fromName, missing, picks } = suggest(r.name, r.exercises);
+  let msg;
+  if (!target.length) msg = "Name your session (like “Push day” or “Back and biceps”) or add an exercise to get ideas.";
+  else if (missing.length) msg = `Not hitting yet: <b>${missing.map(m => MUSCLES[m]).join(", ")}</b>`;
+  else msg = fromName ? `✓ Every muscle for “${esc(r.name)}” is covered.` : "✓ Nicely balanced.";
+  return `<div class="card">
+    <b>Suggestions</b><div class="sub" style="margin:4px 0 8px">${msg}</div>
+    ${picks.map(p => `<button class="sugg" data-act="exsugg" data-id="${r.id}" data-name="${esc(p.name)}">
+      <span>+ ${esc(p.name)}</span><span class="sub">${esc(p.why)}</span></button>`).join("")}
+  </div>`;
 }
 
 function progress() {
@@ -332,6 +357,7 @@ document.addEventListener("click", e => {
     case "newroutine": { const r = { id: Date.now(), name: "New routine", exercises: [] };
       state.routines.push(r); tab = "editRoutine:" + r.id; break; }
     case "exadd": { const v = $("#newex").value.trim(); if (!v) return; routine().exercises.push(v); break; }
+    case "exsugg": routine().exercises.push(b.dataset.name); break;
     case "exdel": routine().exercises.splice(i, 1); break;
     case "exup": { const ex = routine().exercises; [ex[i - 1], ex[i]] = [ex[i], ex[i - 1]]; break; }
     case "delroutine": if (!confirm("Delete this routine?")) return;
@@ -349,7 +375,7 @@ document.addEventListener("change", e => {
     const s = state.active.exercises[t.dataset.ei].sets[t.dataset.si];
     s[t.dataset.f] = t.value === "" ? "" : +t.value; save();
   }
-  if (t.id === "rname") { state.routines.find(x => x.id == t.dataset.id).name = t.value.trim() || "Routine"; save(); }
+  if (t.id === "rname") { state.routines.find(x => x.id == t.dataset.id).name = t.value.trim() || "Routine"; save(); render(); }
   if (t.id === "set-rest") { state.settings.rest = +t.value; save(); }
   if (t.id === "set-unit") { state.settings.unit = t.value; save(); }
   if (t.id === "pick-ex") { progressEx = t.value; render(); }
