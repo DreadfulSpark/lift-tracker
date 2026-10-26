@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lift">
+  <meta name="theme-color" content="#0f0f0f">
+  <title>Lift Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="view"></main>
+
+  <div id="rest" class="rest hidden">
+    <div class="rest-label">Rest</div>
+    <div id="rest-time" class="rest-time">1:30</div>
+    <div class="row">
+      <button class="btn ghost" data-act="rest-add">+30s</button>
+      <button class="btn" data-act="rest-skip">Skip</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <nav class="tabs">
+    <button data-tab="home"><span class="ico">⌂</span>Home</button>
+    <button data-tab="routines"><span class="ico">☰</span>Routines</button>
+    <button data-tab="progress"><span class="ico">↗</span>Progress</button>
+    <button data-tab="history"><span class="ico">◷</span>History</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
