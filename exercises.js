@@ -236,6 +236,30 @@ function alternatives(name) {
     .map(([n]) => n).slice(0, 8);
 }
 
+// What the weight is loaded on. Name keywords win; otherwise a best guess per exercise.
+const EQUIP_GUESS = {
+  "Lateral raise": "dumbbell", "Front raise": "dumbbell", "Rear delt fly": "dumbbell", "Arnold press": "dumbbell",
+  "Bicep curl": "dumbbell", "Hammer curl": "dumbbell", "Incline dumbbell curl": "dumbbell", "Wrist curl": "dumbbell",
+  "Lunge": "dumbbell", "Bulgarian split squat": "dumbbell", "Farmer's carry": "dumbbell", "Shrug": "dumbbell",
+  "Overhead tricep extension": "dumbbell", "Preacher curl": "machine", "Calf raise": "machine",
+  "Upright row": "barbell", "Hip thrust": "barbell", "Skull crusher": "barbell", "T-bar row": "barbell",
+  "Russian twist": "bodyweight", "Back extension": "bodyweight",
+};
+function equipmentFor(name) {
+  const n = name.toLowerCase();
+  if (/dumb+bell|\bdb\b/.test(n)) return "dumbbell";
+  if (/cable|pulldown|pushdown|face pull|crossover/.test(n)) return "cable";
+  if (/machine|smith|leg press|leg extension|leg curl|pec deck|hack squat|seated row/.test(n)) return "machine";
+  if (/barbell|\bbb\b|ez.?bar/.test(n)) return "barbell";
+  if (/kettlebell|\bkb\b/.test(n)) return "dumbbell";
+  if (/pull.?up|chin.?up|push.?up|\bdips?\b|plank|crunch|sit.?up|leg raise|bodyweight/.test(n)) return "bodyweight";
+  const known = Object.keys(EQUIP_GUESS).find(k => k.toLowerCase() === n);
+  if (known) return EQUIP_GUESS[known];
+  if (/bench|squat|deadlift|overhead press|military|row|clean|snatch|good morning/.test(n)) return "barbell";
+  if (/curl|raise|fly|kickback|extension/.test(n)) return "dumbbell";
+  return "machine";
+}
+
 // Big multi-muscle lifts get longer rest than isolation moves.
 function isCompound(name) {
   const [p, s] = musclesFor(name);

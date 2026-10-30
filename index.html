@@ -18,15 +18,34 @@
   <main id="view"></main>
 
   <div id="rest" class="rest hidden">
-    <div class="rest-label">Rest</div>
-    <div id="rest-time" class="rest-time">1:30</div>
-    <div class="row">
-      <button class="btn ghost" data-act="rest-add">+30s</button>
-      <button class="btn" data-act="rest-skip">Skip</button>
+    <div class="ring-wrap">
+      <svg viewBox="0 0 100 100" class="ring">
+        <circle cx="50" cy="50" r="44" class="ring-bg"/>
+        <circle id="ring-fg" cx="50" cy="50" r="44" class="ring-fg"/>
+      </svg>
+      <div id="rest-time" class="rest-time">1:30</div>
+    </div>
+    <div class="rest-mid">
+      <div class="rest-label">Rest · up next</div>
+      <div id="rest-next" class="rest-next"></div>
+    </div>
+    <div class="rest-btns">
+      <button class="btn small ghost" data-act="rest-add">+30s</button>
+      <button class="btn small" data-act="rest-skip">Skip</button>
     </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <div id="levelup" class="levelup hidden" data-act="close-levelup">
+    <div class="levelup-card">
+      <div class="levelup-burst"></div>
+      <div class="sub">Level up</div>
+      <div id="levelup-num" class="levelup-num">2</div>
+      <div id="levelup-rank" class="levelup-rank"></div>
+      <div class="sub" style="margin-top:12px">Tap to keep going</div>
+    </div>
+  </div>
 
   <div id="sheet" class="sheet-bg hidden">
     <div class="sheet">
