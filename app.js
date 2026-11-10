@@ -295,7 +295,7 @@ function home() {
   const diff = last.vol ? Math.round((wk.vol - last.vol) / last.vol * 100) : null;
   return `
     <div class="sub">${fmtDate(Date.now())}</div>
-    <h1>${hi}, ready to lift?</h1>
+    <h1>Good ${hi.toLowerCase()}</h1>
     ${levelCard()}
     ${r ? `<div class="card hero shine">
       <div style="font-size:13px">Up next</div>
@@ -449,7 +449,7 @@ function routines() {
     <div class="row"><button class="btn ghost" style="flex:1" data-act="newroutine">+ New routine</button>
       <button class="btn ghost" style="flex:1" data-act="programs">📚 Programs</button></div>
     <h2>Settings</h2>
-    <div class="card">
+    <div class="card group">
       <div class="row between"><span>Color</span>
         <div class="row" style="gap:8px">${Object.entries(ACCENTS).map(([k, t]) =>
           `<button class="swatch ${k === state.settings.accent ? "on" : ""}" style="background:${t.a}" data-act="accent" data-k="${k}" aria-label="${t.name}"></button>`).join("")}</div></div>
@@ -540,7 +540,7 @@ function progress() {
       <div class="sub" style="margin:8px 0">10–20 hard sets per muscle a week is the sweet spot for growth.</div>
       ${Object.values(wsets).some(n => !n) ? `<div class="sub" style="font-size:13px;margin-bottom:6px">Not trained this week: ${Object.keys(wsets).filter(m => !wsets[m]).map(m => MUSCLES[m]).join(", ")}</div>` : ""}
       ${Object.entries(wsets).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).map(([m, n]) => `<div class="mbar">
-        <span>${MUSCLES[m]}</span><div><i style="width:${Math.min(100, n / 20 * 100)}%;background:${n >= 10 ? "var(--hit)" : n >= 5 ? "var(--hit2)" : "#555"}"></i></div><b>${+n.toFixed(1)}</b></div>`).join("")}
+        <span>${MUSCLES[m]}</span><div><i style="width:${Math.min(100, n / 20 * 100)}%;background:${n >= 10 ? "var(--hit)" : n >= 5 ? "var(--hit2)" : "var(--card3)"}"></i></div><b>${+n.toFixed(1)}</b></div>`).join("")}
     </div>
     <div class="card"><b>Strength level</b>
       ${lifts.length ? lifts.map(([ex, l]) => `<div style="margin-top:10px">
@@ -671,7 +671,7 @@ function infoSheet(ex) {
       <div class="pct">${[[95, 2], [90, 3], [85, 5], [80, 7], [75, 9], [70, 11], [60, 15]].map(([pc, r]) =>
         `<div><b>${round(best * pc / 100, incStep() / 2)}</b><span>${pc}% · ~${r} reps</span></div>`).join("")}</div>` : ""}
     <h2>Recent sessions</h2>
-    ${sessions.length ? sessions.map(x => `<div class="list-item" style="padding:6px 0;border-bottom:1px solid #2a2a2a">
+    ${sessions.length ? sessions.map(x => `<div class="list-item" style="padding:10px 0;border-bottom:.5px solid var(--sep)">
       <span class="sub">${fmtDate(x.date)}</span><span>${x.sets.map(s => `${s.w}×${s.r}`).join(", ")}</span></div>`).join("")
       : `<div class="sub">Nothing logged yet.</div>`}`;
 }
