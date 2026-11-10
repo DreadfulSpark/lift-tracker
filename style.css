@@ -127,6 +127,35 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .beat.won { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .beat.won .xpbar i { background: linear-gradient(90deg, var(--accent), var(--gold)); }
 
+/* Compact exercise card: name, one context line, sets */
+.ex-card { padding: 14px 14px 10px; }
+.ex-name { font-size: 19px; }
+.more-btn { width: 44px; height: 32px; border-radius: 16px; border: 0; background: var(--card2); color: var(--muted);
+  font-size: 13px; letter-spacing: 1px; cursor: pointer; flex-shrink: 0; }
+.target { color: var(--accent-ink); font-weight: 700; font-family: var(--num); font-size: 17px; }
+.set-head { margin: 8px 0 0; }
+.set-head span { color: var(--muted); font-size: 12px; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+.set.next .check { box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent-ink); }
+.add-set { width: 100%; min-height: 40px; margin-top: 4px; border: 0; background: none; color: var(--accent-ink);
+  font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; border-radius: 10px; }
+.add-set:active { background: var(--card2); }
+.menu { margin-top: 12px; border-radius: 14px; overflow: hidden; background: var(--card2); }
+.menu-row { display: block; width: 100%; min-height: 50px; text-align: left; padding: 12px 16px; border: 0; background: none;
+  color: var(--text); font: inherit; cursor: pointer; border-top: .5px solid var(--sep); }
+.menu-row:first-child { border-top: 0; }
+.menu-row:active { background: var(--card3); }
+.menu-row.danger { color: var(--red); }
+.brandline img { height: 22px; vertical-align: middle; }
+.nudge { display: flex; gap: 12px; align-items: center; box-shadow: inset 0 0 0 1px var(--sep); }
+.form-guide { background: var(--card2); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+.form-guide video { width: 100%; border-radius: 10px; margin-bottom: 8px; background: #000; }
+.form-guide ol { margin: 0; padding-left: 22px; }
+.form-guide li { margin: 6px 0; }
+.mistake { margin-top: 10px; padding-top: 10px; border-top: .5px solid var(--sep); font-size: 15px; color: var(--muted); }
+.mistake b { color: var(--sore); }
+.ext-link { display: block; text-align: center; margin-top: 16px; color: var(--muted); font-size: 14px; text-decoration: none; }
+button.form-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+
 /* ---------- Grouped list rows (settings, exercise lists) ---------- */
 .group { padding: 0 16px; }
 .group > .row { min-height: 52px; margin: 0 !important; padding: 8px 0; border-top: .5px solid var(--sep); }

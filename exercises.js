@@ -168,6 +168,61 @@ function suggest(routineName, exercises) {
   return { target, fromName, missing, picks: picks.slice(0, 6) };
 }
 
+// Coaching cues shown in-app: [setup/execution cues, most common mistake].
+const FORM_CUES = {
+  "Bench press": [["Eyes under the bar, shoulder blades squeezed and down", "Feet planted, slight arch, grip just outside shoulders", "Lower to mid-chest, elbows ~45°, press up and slightly back"], "Flaring elbows to 90° and bouncing the bar off your chest"],
+  "Dumbbell bench press": [["Kick the dumbbells up off your knees as you lie back", "Shoulder blades pinned, wrists stacked over elbows", "Lower until a deep stretch, press up and slightly in"], "Letting the dumbbells drift too wide at the bottom"],
+  "Incline bench press": [["Bench at 30–45°", "Bar touches upper chest, just under the collarbone", "Keep your shoulder blades back the whole set"], "Setting the bench too steep so it turns into a shoulder press"],
+  "Incline dumbbell press": [["Bench at 30–45°", "Lower the dumbbells to upper-chest level", "Press up in a slight arc, don't clang them together"], "Shrugging your shoulders up toward your ears"],
+  "Overhead press": [["Bar on front delts, grip just outside shoulders", "Squeeze glutes and brace your abs hard", "Press straight up, move your head back then through"], "Leaning way back and turning it into a standing incline press"],
+  "Dumbbell shoulder press": [["Dumbbells at ear height, palms forward", "Ribs down, glutes tight", "Press up until arms are straight, don't lock hard"], "Arching the lower back to finish reps"],
+  "Lateral raise": [["Slight bend in the elbows, lean a touch forward", "Lead with the elbows, raise to shoulder height", "Control the way down, 2–3 seconds"], "Swinging with momentum and going too heavy"],
+  "Tricep pushdown": [["Elbows pinned to your sides", "Push down until arms are fully straight", "Only your forearms move"], "Letting elbows drift forward so your shoulders take over"],
+  "Dips": [["Lean slightly forward for chest, upright for triceps", "Lower until shoulders are just below elbows", "Press up to full lockout"], "Dropping too deep with shrugged shoulders"],
+  "Push-up": [["Hands under shoulders, body in one straight line", "Elbows ~45° from your body", "Chest touches the floor every rep"], "Hips sagging or piking up"],
+  "Pull-up": [["Grip just wider than shoulders, start from a dead hang", "Pull your elbows down to your ribs", "Chin over the bar, lower all the way under control"], "Half reps and kipping to get the chin up"],
+  "Chin-up": [["Palms facing you, shoulder-width grip", "Drive elbows down and back", "Full hang at the bottom of every rep"], "Craning the neck to reach the bar"],
+  "Lat pulldown": [["Thighs locked under the pad", "Pull the bar to your upper chest", "Lean back slightly, squeeze lats at the bottom"], "Leaning way back and yanking with your lower back"],
+  "Barbell row": [["Hinge to about 45°, flat back", "Pull the bar to your lower ribs", "Squeeze shoulder blades together at the top"], "Standing up more each rep to cheat the weight"],
+  "Dumbbell row": [["One hand and knee on the bench, flat back", "Pull the dumbbell to your hip, not your chest", "Full stretch at the bottom"], "Twisting your torso to lift the weight"],
+  "Seated cable row": [["Sit tall, slight knee bend", "Pull the handle to your belly button", "Squeeze, then let your shoulders reach forward"], "Rocking back and forth with your whole body"],
+  "Face pull": [["Rope at face height, thumbs pointing back", "Pull toward your eyes, elbows high", "Pull the rope apart at the end"], "Going heavy and turning it into a row"],
+  "Deadlift": [["Bar over mid-foot, shins touch the bar", "Hinge down, flat back, chest up, take the slack out", "Push the floor away, lock out with your glutes"], "Rounding your lower back and jerking the bar off the floor"],
+  "Romanian deadlift": [["Soft knees, push your hips straight back", "Bar slides down your thighs, back stays flat", "Stop at a big hamstring stretch, drive hips forward"], "Bending the knees too much so it becomes a squat"],
+  "Squat": [["Bar on upper traps, feet shoulder-width, toes slightly out", "Brace, sit down between your heels, knees track over toes", "Hit at least parallel, drive up through mid-foot"], "Heels lifting or knees caving inward"],
+  "Front squat": [["Bar on front delts, elbows high", "Stay tall, sit straight down", "Drive elbows up as you stand"], "Elbows dropping so the bar rolls forward"],
+  "Leg press": [["Feet shoulder-width, mid-platform", "Lower until knees are near your chest", "Press through your heels, don't lock knees hard"], "Lower back peeling off the seat at the bottom"],
+  "Bulgarian split squat": [["Rear foot on bench, front foot far enough forward", "Drop straight down", "Push through the front heel"], "Front foot too close so the knee shoots forward"],
+  "Lunge": [["Long step, torso tall", "Back knee drops toward the floor", "Push through the front heel to stand"], "Knee caving in on the front leg"],
+  "Leg curl": [["Pad just above your heels", "Curl all the way, squeeze hamstrings", "Lower slowly"], "Hips lifting off the pad"],
+  "Leg extension": [["Knee lined up with the machine's pivot", "Extend fully and squeeze quads", "Lower with control"], "Swinging the weight up with momentum"],
+  "Hip thrust": [["Upper back on bench, bar over hips (use a pad)", "Chin tucked, drive through heels", "Lock out with glutes, ribs down"], "Arching the lower back at the top instead of using glutes"],
+  "Calf raise": [["Balls of feet on the edge", "Full stretch at the bottom, pause", "Rise all the way up and squeeze"], "Bouncing fast with tiny reps"],
+  "Bicep curl": [["Elbows pinned to your sides", "Curl up without swinging", "Lower slowly, full extension"], "Swinging your torso to lift the weight"],
+  "Hammer curl": [["Palms face each other", "Elbows stay still", "Control the way down"], "Letting the elbows drift forward"],
+  "Skull crusher": [["Arms angled slightly back toward your head", "Bend only at the elbows", "Lower to forehead or just behind"], "Elbows flaring out wide"],
+  "Plank": [["Elbows under shoulders", "Squeeze glutes and abs, straight line", "Breathe, don't hold your breath"], "Hips sagging toward the floor"],
+  "Hanging leg raise": [["Dead hang, shoulders active", "Curl your pelvis up, not just your legs", "Lower slowly without swinging"], "Swinging and using momentum"],
+  "Shrug": [["Arms straight, stand tall", "Shrug straight up toward your ears", "Pause at the top"], "Rolling your shoulders in circles"],
+};
+const MUSCLE_CUES = {
+  chest: [["Shoulder blades back and down", "Control the lowering phase", "Full range of motion"], "Bouncing the weight"],
+  shoulders: [["Ribs down, glutes tight", "Press or raise under control", "Stop just short of locking out"], "Arching the lower back"],
+  lats: [["Lead with your elbows", "Squeeze your back at the end", "Let your arms fully straighten"], "Pulling with just your arms"],
+  quads: [["Brace your core", "Knees track over toes", "Full depth you can control"], "Knees caving in"],
+  hamstrings: [["Hinge at the hips, flat back", "Feel the stretch", "Drive hips forward"], "Rounding the back"],
+  glutes: [["Drive through your heels", "Squeeze glutes at the top", "Keep ribs down"], "Using your lower back instead"],
+  biceps: [["Elbows still", "No swinging", "Slow on the way down"], "Using momentum"],
+  triceps: [["Elbows still", "Full lockout", "Control the stretch"], "Elbows flaring"],
+  abs: [["Brace like someone's about to poke you", "Move slowly", "Breathe out on the effort"], "Pulling on your neck"],
+};
+function formCues(name) {
+  const k = Object.keys(FORM_CUES).find(x => x.toLowerCase() === name.toLowerCase());
+  if (k) return FORM_CUES[k];
+  const m = musclesFor(name)[0][0];
+  return MUSCLE_CUES[m] || [["Set up in a stable position", "Move through a full range under control", "Stop 1–2 reps before your form breaks"], "Going too heavy too soon"];
+}
+
 // TikTok search for form videos. Opens the TikTok app on iPhone if installed.
 function formLink(name) {
   return `https://www.tiktok.com/search?q=${encodeURIComponent(name + " proper form")}`;

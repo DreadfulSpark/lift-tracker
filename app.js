@@ -16,7 +16,8 @@ const DEFAULT = {
   challenges: {}, // date string -> true when the daily challenge was beaten
   summary: null,  // last finished workout recap
   xp: null,       // null = work it out from history on first load
-  settings: { rest: "auto", unit: "lb", weeklyGoal: 4, sound: true, accent: "teal" },
+  lastBackup: null,
+  settings: { rest: "auto", unit: "lb", weeklyGoal: 4, sound: true, accent: BRAND.accent, game: BRAND.game ?? true },
 };
 
 let state = load();
@@ -43,7 +44,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 // ---------- Themes ----------
 
-const ACCENTS = {
+let ACCENTS = {
   teal:   { name: "Teal",   a: "#2fbf8f", d: "#04342c", h2: "#2f7f68", low: "#2d4a41" },
   fire:   { name: "Fire",   a: "#ff7a2f", d: "#3d1703", h2: "#a8521f", low: "#4a3020" },
   violet: { name: "Violet", a: "#9b7bff", d: "#1f1450", h2: "#6450b0", low: "#352d55" },
@@ -52,6 +53,14 @@ const ACCENTS = {
 };
 function applyTheme() {
   const t = ACCENTS[state.settings.accent] || ACCENTS.teal, r = document.documentElement.style;
+  if (/^#/.test(BRAND.accent) && !ACCENTS.brand) {
+    // A gym's own hex colour becomes the first swatch, with shades mixed from it.
+    const h = BRAND.accent;
+    ACCENTS = { brand: { name: BRAND.name, a: h, d: `color-mix(in srgb, ${h} 22%, #000)`, h2: `color-mix(in srgb, ${h} 60%, #000)`,
+      low: `color-mix(in srgb, ${h} 30%, #1c1c1e)` }, ...ACCENTS };
+    if (state.settings.accent === h) state.settings.accent = "brand";
+    return applyTheme();
+  }
   r.setProperty("--accent", t.a); r.setProperty("--accent-dark", t.d);
   r.setProperty("--hit", t.a); r.setProperty("--hit2", t.h2); r.setProperty("--low", t.low);
 }
@@ -69,7 +78,7 @@ function addXP(n) {
   const before = levelOf(state.xp);
   state.xp += n;
   const after = levelOf(state.xp);
-  if (after > before) setTimeout(() => showLevelUp(after), 400);
+  if (after > before && game()) setTimeout(() => showLevelUp(after), 400);
 }
 
 function showLevelUp(lvl) {
@@ -89,6 +98,18 @@ function levelCard() {
       <div class="xpbar"><i style="width:${pct}%"></i></div>
     </div>
   </div>`;
+}
+
+const game = () => state.settings.game !== false;
+
+// Data only lives on this phone, so nudge a backup once there's something worth losing.
+function backupNudge() {
+  if (state.workouts.length < 3) return "";
+  const since = state.lastBackup ? (Date.now() - state.lastBackup) / DAY : Infinity;
+  if (since < 14) return "";
+  return `<div class="card nudge"><div style="flex:1"><b>Back up your lifts</b>
+    <div class="sub" style="font-size:13px">${state.workouts.length} workouts live only on this phone${state.lastBackup ? ` · last backup ${Math.floor(since)} days ago` : ""}.</div></div>
+    <button class="btn small primary" data-act="export">Back up</button></div>`;
 }
 
 // ---------- Daily challenge ----------
@@ -159,7 +180,12 @@ const shortNum = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" :
 const REP_GOAL = 8;
 function coach(ex) {
   const last = lastSetsFor(ex);
-  if (!last.length || equipmentFor(ex) === "bodyweight" && last.every(s => !s.w)) return null;
+  if (!last.length) return null;
+  if (equipmentFor(ex) === "bodyweight" && last.every(s => !s.w)) {
+    // Bodyweight: progress by reps instead of weight.
+    const reps = Math.min(...last.map(s => s.r)) + 1;
+    return { w: 0, r: reps, sets: last.length, tip: `Bodyweight: beat last time with ${reps} reps on every set.` };
+  }
   const top = Math.max(...last.map(s => s.w));
   const topSets = last.filter(s => s.w === top);
   if (topSets.every(s => s.r >= REP_GOAL)) {
@@ -294,20 +320,21 @@ function home() {
   const streak = streakDays(), ch = todaysChallenge(), chDone = state.challenges[todayKey()];
   const diff = last.vol ? Math.round((wk.vol - last.vol) / last.vol * 100) : null;
   return `
-    <div class="sub">${fmtDate(Date.now())}</div>
+    <div class="sub brandline">${BRAND.logo ? `<img src="${esc(BRAND.logo)}" alt="${esc(BRAND.name)}">` : esc(BRAND.name)} · ${fmtDate(Date.now())}</div>
     <h1>Good ${hi.toLowerCase()}</h1>
-    ${levelCard()}
-    ${r ? `<div class="card hero shine">
+    ${r ? `<div class="card hero">
       <div style="font-size:13px">Up next</div>
       <h2>${esc(r.name)}</h2>
       <div style="font-size:13px;margin-bottom:12px">${r.exercises.map(esc).join(" · ")}</div>
       ${ready.length ? `<div style="font-size:13px;margin:-6px 0 10px">⚠️ Still recovering: ${[...new Set(ready)].map(m => MUSCLES[m]).join(", ")}</div>` : ""}
       <button class="btn dark wide" data-act="start" data-id="${r.id}">▶ Start workout</button>
     </div>` : ""}
+    ${backupNudge()}
+    ${game() ? `${levelCard()}
     <div class="card challenge ${chDone ? "won" : ""}">
       <div class="ch-icon">${chDone ? "✅" : "⚡"}</div>
       <div style="flex:1"><div class="sub" style="font-size:12px">Daily challenge · +${XP.challenge} XP</div><b>${ch.text}</b></div>
-    </div>
+    </div>` : ""}
     <div class="grid3">
       <div class="stat"><span class="sub">Streak</span><div class="row" style="gap:4px">${num(streak)}<span class="${streak ? "flame" : "flame off"}">🔥</span></div></div>
       <div class="stat"><span class="sub">This week</span>${num(wk.count)}</div>
@@ -332,7 +359,25 @@ function home() {
   `;
 }
 
-const EQUIP_BTN = { barbell: "🍩 Plates", dumbbell: "🏋️ Dumbbells", cable: "🧱 Stack", machine: "🧱 Stack" };
+const EQUIP_BTN = { barbell: "🍩 Plate calculator", dumbbell: "🏋️ Dumbbell picker", cable: "🧱 Weight stack", machine: "🧱 Weight stack" };
+const fmtSet = s => `${+s.w ? s.w : "BW"}×${s.r}`;
+
+function moreSheet(ei) {
+  const e = state.active.exercises[ei], eq = equipmentFor(e.name), tip = coach(e.name);
+  const work = e.sets.filter(s => !s.warm), complete = work.length && work.every(s => s.done);
+  const item = (act, label, extra = "", cls = "") => `<button class="menu-row ${cls}" data-act="${act}" data-ei="${ei}" ${extra}>${label}</button>`;
+  return `<h2>${esc(e.name)}</h2>
+    ${tip ? `<div class="coach">📈 ${tip.tip}</div>` : ""}
+    <div class="menu">
+      ${item("info", "▶ Form guide and history", `data-ex="${esc(e.name)}"`)}
+      ${EQUIP_BTN[eq] ? item("plates", EQUIP_BTN[eq]) : ""}
+      ${e.sets.some(s => s.warm) || eq === "bodyweight" ? "" : item("warmup", "🔥 Add warm-up sets")}
+      ${item("swap", "⇄ Swap exercise")}
+      ${e.sets.length > 1 ? item("delset", "− Remove last set") : ""}
+      ${complete ? item("collapse", "▴ Collapse") : ""}
+      ${item("exremove", "✕ Skip this exercise today", "", "danger")}
+    </div>`;
+}
 const EQUIP_TAG = { barbell: "Barbell", dumbbell: "Dumbbell", cable: "Cable", machine: "Machine", bodyweight: "Bodyweight" };
 
 function workout() {
@@ -354,33 +399,25 @@ function workout() {
       const eq = equipmentFor(e.name);
       if (complete && !e.open) return `<div class="card done-card" data-act="expand" data-ei="${ei}">
         <div class="row between"><div class="row"><span class="tick">✓</span><b>${esc(e.name)}</b></div>
-        <span class="sub">${work.map(s => `${s.w}×${s.r}`).join(", ")}${work.some(s => s.pr) ? " 🏆" : ""}</span></div></div>`;
-      const last = lastSetsFor(e.name), tip = coach(e.name), note = state.notes[e.name];
+        <span class="sub">${work.map(fmtSet).join(", ")}${work.some(s => s.pr) ? " 🏆" : ""}</span></div></div>`;
+      const last = lastSetsFor(e.name), tip = coach(e.name), note = state.notes[e.name], bw = eq === "bodyweight";
+      const nextIdx = e.sets.findIndex(s => !s.done);
       let n = 0;
-      return `<div class="card" style="margin-top:12px">
-        <div class="row between"><div class="row"><b>${esc(e.name)}</b>
-          <a class="form-link" href="${formLink(e.name)}" target="_blank" rel="noopener">▶ Form</a></div>
-          <span class="eq">${EQUIP_TAG[eq]}</span></div>
-        ${last.length ? `<div class="last">Last: ${last.map(s => `${s.w}×${s.r}`).join(", ")}${bestFor(e.name) ? ` · 🏆 ${Math.round(bestFor(e.name))}` : ""}</div>` : `<div class="last">First time, pick a starting weight</div>`}
-        ${tip ? `<div class="coach">📈 ${tip.tip}</div>` : ""}
-        ${note ? `<div class="note">📝 ${esc(note)}</div>` : ""}
-        <div class="set" style="margin-top:8px"><span class="num sub">Set</span><span class="sub" style="text-align:center">${eq === "dumbbell" ? unit() + " each" : unit()}</span><span class="sub" style="text-align:center">Reps</span><span></span></div>
-        ${e.sets.map((s, si) => `<div class="set ${s.done ? "done" : ""} ${s.warm ? "warm" : ""} ${s.pr ? "is-pr" : ""}" data-row="${ei}-${si}">
+      // Mid-set view: name, one line of context, the sets. Everything else lives behind ⋯.
+      return `<div class="card ex-card" style="margin-top:12px">
+        <div class="row between"><b class="ex-name">${esc(e.name)}</b>
+          <button class="more-btn" data-act="more" data-ei="${ei}" aria-label="More for ${esc(e.name)}">•••</button></div>
+        <div class="last">${last.length ? `Last ${last.map(fmtSet).join(" · ")}` : bw ? `First time · start with ${e.sets[0]?.r || REP_GOAL}, adjust if needed` : "First time · pick a starting weight"}${
+          tip ? ` <span class="target">→ ${bw && !tip.w ? "BW" : tip.w}×${tip.r}</span>` : ""}</div>
+        ${note ? `<div class="note">${esc(note)}</div>` : ""}
+        <div class="set set-head"><span></span><span>${bw ? "+" + unit() : eq === "dumbbell" ? unit() + " each" : unit()}</span><span>Reps</span><span></span></div>
+        ${e.sets.map((s, si) => `<div class="set ${s.done ? "done" : ""} ${s.warm ? "warm" : ""} ${s.pr ? "is-pr" : ""} ${si === nextIdx ? "next" : ""}" data-row="${ei}-${si}">
           <span class="num">${s.warm ? "W" : ++n}</span>
-          <input type="number" inputmode="decimal" value="${s.w}" data-ei="${ei}" data-si="${si}" data-f="w">
-          <input type="number" inputmode="numeric" value="${s.r}" data-ei="${ei}" data-si="${si}" data-f="r">
-          <button class="check" data-act="toggle" data-ei="${ei}" data-si="${si}">${s.pr ? "🏆" : "✓"}</button>
+          <input type="number" inputmode="decimal" value="${bw && !+s.w ? "" : s.w}" ${bw ? `placeholder="BW"` : ""} data-ei="${ei}" data-si="${si}" data-f="w" aria-label="Weight">
+          <input type="number" inputmode="numeric" value="${s.r}" data-ei="${ei}" data-si="${si}" data-f="r" aria-label="Reps">
+          <button class="check" data-act="toggle" data-ei="${ei}" data-si="${si}" aria-label="Log set">${s.pr ? "🏆" : "✓"}</button>
         </div>`).join("")}
-        <div class="tools">
-          <button class="btn small ghost" data-act="addset" data-ei="${ei}">+ Set</button>
-          ${e.sets.length > 1 ? `<button class="btn small ghost" data-act="delset" data-ei="${ei}">− Set</button>` : ""}
-          ${e.sets.some(s => s.warm) || eq === "bodyweight" ? "" : `<button class="btn small ghost" data-act="warmup" data-ei="${ei}">🔥 Warm-up</button>`}
-          ${EQUIP_BTN[eq] ? `<button class="btn small ghost" data-act="plates" data-ei="${ei}">${EQUIP_BTN[eq]}</button>` : ""}
-          <button class="btn small ghost" data-act="swap" data-ei="${ei}">⇄ Swap</button>
-          <button class="btn small ghost" data-act="info" data-ex="${esc(e.name)}">ⓘ Info</button>
-          ${complete ? `<button class="btn small ghost" data-act="collapse" data-ei="${ei}">▴ Hide</button>` : ""}
-          <button class="btn small danger" data-act="exremove" data-ei="${ei}">✕ Remove</button>
-        </div>
+        <button class="add-set" data-act="addset" data-ei="${ei}">+ Add set</button>
       </div>`;
     }).join("")}
     <div class="card"><input id="addex" list="ex-list" placeholder="Add an exercise (e.g. Lateral raise)">
@@ -454,6 +491,8 @@ function routines() {
       <div class="row between"><span>Color</span>
         <div class="row" style="gap:8px">${Object.entries(ACCENTS).map(([k, t]) =>
           `<button class="swatch ${k === state.settings.accent ? "on" : ""}" style="background:${t.a}" data-act="accent" data-k="${k}" aria-label="${t.name}"></button>`).join("")}</div></div>
+      <div class="row between"><div><div>Game mode</div><div class="sub" style="font-size:13px">XP, levels, badges and daily challenges</div></div>
+        <button class="toggle ${game() ? "on" : ""}" data-act="game" aria-label="Game mode"><i></i></button></div>
       <div class="row between" style="margin-top:10px"><span>Sound effects</span>
         <button class="toggle ${state.settings.sound ? "on" : ""}" data-act="sound" aria-label="Sound"><i></i></button></div>
       <div class="row between" style="margin-top:10px"><span>Rest timer</span>
@@ -493,7 +532,7 @@ function editRoutine() {
     ${r.exercises.map((e, i) => `<div class="card">
       <div class="row between"><div><b>${esc(e)}</b>
         <div class="sub" style="font-size:12px">${EQUIP_TAG[equipmentFor(e)]} · ${musclesFor(e)[0].map(m => MUSCLES[m]).join(", ") || "Unknown muscles"}</div></div>
-        <a class="form-link" href="${formLink(e)}" target="_blank" rel="noopener">▶ Form</a></div>
+        <button class="form-link" data-act="info" data-ex="${esc(e)}">▶ Form</button></div>
       <div class="row" style="gap:4px;margin-top:8px">
         <button class="icon-btn" data-act="exup" data-id="${r.id}" data-i="${i}" ${i ? "" : "disabled"} aria-label="Move up">↑</button>
         <button class="icon-btn" data-act="exdown" data-id="${r.id}" data-i="${i}" ${i < n - 1 ? "" : "disabled"} aria-label="Move down">↓</button>
@@ -533,7 +572,7 @@ function progress() {
   const lifts = Object.keys(STANDARDS).map(ex => [ex, strengthLevel(ex)]).filter(([, l]) => l);
   return `
     <h1>Progress</h1>
-    ${levelCard()}
+    ${game() ? levelCard() : ""}
     <div class="card">
       <div class="row between"><b>This week's sets</b>
         <span class="legend"><i style="background:var(--low)"></i>1-4 <i style="background:var(--hit2)"></i>5-9 <i style="background:var(--hit)"></i>10+</span></div>
@@ -562,8 +601,8 @@ function progress() {
       <div class="row" style="margin-top:8px"><input id="bw" type="number" inputmode="decimal" placeholder="Today's weight (${unit()})">
         <button class="btn primary" data-act="logbw">Log</button></div>
     </div>
-    <h2>Badges <span class="sub">${Object.keys(state.badges).length}/${BADGES.length}</span></h2>
-    <div class="badges">${BADGES.map(b => badgeTile(b, state.badges[b.id])).join("")}</div>
+    ${game() ? `<h2>Badges <span class="sub">${Object.keys(state.badges).length}/${BADGES.length}</span></h2>
+    <div class="badges">${BADGES.map(b => badgeTile(b, state.badges[b.id])).join("")}</div>` : ""}
     ${names.length ? `<h2>All-time bests</h2>` + names.map(n => `<div class="card list-item"><span>${esc(n)}</span><span class="pr">${Math.round(bestFor(n))} ${unit()}</span></div>`).join("") : ""}
   `;
 }
@@ -663,7 +702,7 @@ function infoSheet(ex) {
   const [p, s] = musclesFor(ex);
   return `<h2>${esc(ex)}</h2>
     <div class="sub">${EQUIP_TAG[equipmentFor(ex)]} · Main: ${p.map(m => MUSCLES[m]).join(", ") || "?"}${s.length ? ` · Helpers: ${s.map(m => MUSCLES[m]).join(", ")}` : ""}</div>
-    <a class="btn ghost wide" style="margin:10px 0;text-align:center" href="${formLink(ex)}" target="_blank" rel="noopener">▶ Watch form videos on TikTok</a>
+    ${formGuide(ex)}
     ${lvl ? `<div class="card" style="background:var(--card2)"><div class="row between"><b>Strength level</b><span class="tier">${lvl.tier}</span></div>
       <div class="xpbar"><i style="width:${lvl.pct}%"></i></div></div>` : ""}
     <b>Your notes</b>
@@ -673,8 +712,19 @@ function infoSheet(ex) {
         `<div><b>${round(best * pc / 100, incStep() / 2)}</b><span>${pc}% · ~${r} reps</span></div>`).join("")}</div>` : ""}
     <h2>Recent sessions</h2>
     ${sessions.length ? sessions.map(x => `<div class="list-item" style="padding:10px 0;border-bottom:.5px solid var(--sep)">
-      <span class="sub">${fmtDate(x.date)}</span><span>${x.sets.map(s => `${s.w}×${s.r}`).join(", ")}</span></div>`).join("")
-      : `<div class="sub">Nothing logged yet.</div>`}`;
+      <span class="sub">${fmtDate(x.date)}</span><span>${x.sets.map(fmtSet).join(", ")}</span></div>`).join("")
+      : `<div class="sub">Nothing logged yet.</div>`}
+    <a class="ext-link" href="${formLink(ex)}" target="_blank" rel="noopener">More form videos on TikTok ↗</a>`;
+}
+
+// Gym-supplied video (brand.js) plays inline; otherwise written cues.
+function formGuide(ex) {
+  const [cues, mistake] = formCues(ex), video = BRAND.videos?.[ex];
+  return `<div class="form-guide">
+    ${video ? `<video src="${esc(video)}" controls playsinline muted loop preload="metadata"></video>` : ""}
+    <ol>${cues.map(c => `<li>${esc(c)}</li>`).join("")}</ol>
+    <div class="mistake"><b>Common mistake:</b> ${esc(mistake)}</div>
+  </div>`;
 }
 
 function swapSheet(ei) {
@@ -685,10 +735,12 @@ function swapSheet(ei) {
       : `<div class="empty">No matches for this one.</div>`}`;
 }
 
+const allPrograms = () => [...(BRAND.programs || []), ...PROGRAMS];
+
 function programsSheet() {
   return `<h2>Programs</h2><div class="sub">Proven routines. Adding one keeps your current routines too.</div>
-    ${PROGRAMS.map((p, i) => `<div class="card" style="background:var(--card2);margin-top:10px">
-      <div class="row between"><div><b>${p.name}</b><div class="sub">${p.about}</div></div>
+    ${allPrograms().map((p, i) => `<div class="card" style="background:var(--card2);margin-top:10px">
+      <div class="row between"><div><b>${esc(p.name)}</b>${i < (BRAND.programs || []).length ? ` <span class="tier">From ${esc(BRAND.name)}</span>` : ""}<div class="sub">${p.about}</div></div>
         <button class="btn small primary" data-act="add-program" data-i="${i}">Add</button></div>
       <div style="margin-top:6px">${p.routines.map(([n]) => `<span class="chip">${n}</span>`).join("")}</div></div>`).join("")}`;
 }
@@ -721,8 +773,9 @@ function warmupSets(ex, work) {
 
 function finishWorkout() {
   const a = state.active;
-  const sets = a.exercises.flatMap(e => e.sets.filter(s => s.done && !s.warm && s.w !== "" && s.r)
-    .map(s => ({ ex: e.name, w: +s.w, r: +s.r })));
+  const sets = a.exercises.flatMap(e => e.sets
+    .filter(s => s.done && !s.warm && s.r && (s.w !== "" || equipmentFor(e.name) === "bodyweight"))
+    .map(s => ({ ex: e.name, w: +s.w || 0, r: +s.r })));
   if (!sets.length) { if (confirm("No working sets checked off. Discard this workout?")) discard(); return; }
   const prs = [...new Set(sets.map(s => s.ex))].map(ex => {
     const prev = bestFor(ex), now = Math.max(...sets.filter(s => s.ex === ex).map(s => oneRM(s.w, s.r)));
@@ -756,7 +809,8 @@ const HYPE = ["Light weight!", "Clean rep!", "Strong!", "Let's go!", "Easy money
 
 function completeSet(ei, si, btn) {
   const a = state.active, e = a.exercises[ei], s = e.sets[si];
-  if (!s.done && (s.w === "" || !s.r)) { toast("Enter weight and reps first"); return; }
+  const bw = equipmentFor(e.name) === "bodyweight";
+  if (!s.done && ((s.w === "" && !bw) || !s.r)) { toast(bw ? "Enter your reps first" : "Enter weight and reps first"); return; }
   const rect = btn.getBoundingClientRect();
   s.done = !s.done;
   if (s.done && !s.warm) {
@@ -765,7 +819,7 @@ function completeSet(ei, si, btn) {
     s.pr = isPR;
     addXP(XP.set + (isPR ? XP.pr : 0));
     if (isPR) { prPop(e.name, s); sfx("pr"); }
-    else { sfx("set"); floatText(`+${XP.set} XP${Math.random() < .35 ? " · " + pick(HYPE) : ""}`, rect); }
+    else { sfx("set"); if (game()) floatText(`+${XP.set} XP${Math.random() < .35 ? " · " + pick(HYPE) : ""}`, rect); }
   } else if (s.done) sfx("set");
   else if (!s.warm) { state.xp = Math.max(0, state.xp - XP.set - (s.pr ? XP.pr : 0)); s.pr = false; }
   save(); render();
@@ -880,7 +934,7 @@ async function shareSummary() {
   }
   g.fillStyle = "#f1efe8"; g.font = "600 48px -apple-system, sans-serif";
   g.fillText(`Level ${levelOf(state.xp)} · ${rankOf(levelOf(state.xp))} lifter`, 540, 1180);
-  g.fillStyle = acc; g.font = "800 44px -apple-system, sans-serif"; g.fillText("LIFT TRACKER", 540, 1270);
+  g.fillStyle = acc; g.font = "800 44px -apple-system, sans-serif"; g.fillText(BRAND.name.toUpperCase(), 540, 1270);
   const blob = await new Promise(r => c.toBlob(r, "image/png"));
   const file = new File([blob], "workout.png", { type: "image/png" });
   if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
@@ -900,7 +954,10 @@ document.addEventListener("click", e => {
   const routine = () => state.routines.find(x => x.id == id);
   const move = (arr, from, to) => { if (to < 0 || to >= arr.length) return; [arr[from], arr[to]] = [arr[to], arr[from]]; };
 
+  if (b.closest("#sheet") && ["warmup", "delset", "exremove", "collapse"].includes(act)) closeSheet();
+
   switch (act) {
+    case "more": openSheet(moreSheet(+ei)); return;
     case "start": startWorkout(id); return;
     case "finish": finishWorkout(); return;
     case "discard": if (confirm("Throw away this workout?")) discard(); return;
@@ -937,7 +994,7 @@ document.addEventListener("click", e => {
     case "info": openSheet(infoSheet(b.dataset.ex)); return;
     case "programs": openSheet(programsSheet()); return;
     case "add-program": {
-      const p = PROGRAMS[i];
+      const p = allPrograms()[i];
       p.routines.forEach(([name, exs], k) => state.routines.push({ id: Date.now() + k, name, exercises: [...exs] }));
       closeSheet(); toast(`Added ${p.name}`); break;
     }
@@ -970,7 +1027,8 @@ document.addEventListener("click", e => {
       state.bodyweight.push({ d: Date.now(), v });
       checkBadges().forEach(b => toast(`${b.icon} Badge unlocked: ${b.name}`)); break;
     }
-    case "export": exportData(); return;
+    case "export": exportData(); state.lastBackup = Date.now(); break;
+    case "game": state.settings.game = !game(); break;
   }
   save(); render();
 });
@@ -1026,5 +1084,6 @@ function backfillXP() {
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 backfillXP(); save();
+document.title = BRAND.name;
 applyTheme();
 go(tab);
