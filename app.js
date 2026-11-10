@@ -379,6 +379,7 @@ function workout() {
           <button class="btn small ghost" data-act="swap" data-ei="${ei}">⇄ Swap</button>
           <button class="btn small ghost" data-act="info" data-ex="${esc(e.name)}">ⓘ Info</button>
           ${complete ? `<button class="btn small ghost" data-act="collapse" data-ei="${ei}">▴ Hide</button>` : ""}
+          <button class="btn small danger" data-act="exremove" data-ei="${ei}">✕ Remove</button>
         </div>
       </div>`;
     }).join("")}
@@ -913,6 +914,13 @@ document.addEventListener("click", e => {
     case "addset": { const sets = a.exercises[ei].sets; const l = sets.at(-1);
       sets.push({ w: l?.w ?? "", r: l?.r ?? REP_GOAL, done: false }); break; }
     case "delset": a.exercises[ei].sets.pop(); break;
+    case "exremove": {
+      // Only this workout loses it; the saved routine keeps the exercise for next time.
+      const ex = a.exercises[ei], logged = ex.sets.filter(s => s.done && !s.warm).length;
+      if (logged && !confirm(`Remove ${ex.name}? The ${logged} set${logged > 1 ? "s" : ""} you logged won't be saved.`)) return;
+      a.exercises.splice(ei, 1);
+      toast(`Skipped ${ex.name} for today`); break;
+    }
     case "warmup": {
       const ex = a.exercises[ei], work = +ex.sets.find(s => !s.warm)?.w;
       if (!work) { toast("Enter your working weight first"); return; }
